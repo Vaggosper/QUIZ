@@ -14,24 +14,48 @@ DEBUG = True  # βάλ' το False όταν τελειώσουμε
 # ============== THEME / CSS ==============
 st.markdown("""
 <style>
-html, body, [data-testid="stAppViewContainer"] {
-  background: radial-gradient(1100px 600px at 5% 5%, #101a33, #0b1120 40%, #070b16 100%) !important;
-  color: #e6edff !important;
-}
-h1,h2,h3,h4 { color: #e6edff !important; }
-.block-container { max-width: 860px; }
-.quiz-card { background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.08);
-             border-radius: 14px; padding: 1.1rem; box-shadow: 0 8px 22px rgba(0,0,0,.35); }
-.badge { display:inline-block; padding:4px 10px; border-radius:10px; background:#142247; color:#bfd3ff;
-         border:1px solid rgba(255,255,255,.09); margin-right:6px; }
-.score-chip { display:inline-block; padding:6px 12px; border-radius:999px; background:#13203f; color:#dbe6ff;
-              border:1px solid rgba(255,255,255,.08); }
-div.stButton > button { border-radius: 12px; font-weight: 600; }
+...
 </style>
 """, unsafe_allow_html=True)
+html, body, [data-testid="stAppViewContainer"] {
+  background: linear-gradient(160deg, #1a2540 0%, #0d1733 70%, #0a0f1f 100%) !important;
+  color: #f3f5ff !important;
+}
+h1,h2,h3,h4 { color: #ffffff !important; }
+.quiz-card {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 14px;
+  padding: 1.2rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.badge {
+  background:#21335c; color:#d9e4ff;
+  border:1px solid rgba(255,255,255,.15);
+}
+.score-chip {
+  background:#1c2b53; color:#f1f4ff;
+}
+div.stButton > button {
+  border-radius: 10px;
+  font-weight: 600;
+  color: white !important;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  border: none;
+}
+div.stButton > button:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%) !important;
+}
+[data-baseweb="toast"] {
+  border-radius: 10px !important;
+  font-weight: 500 !important;
+  color: white !important;
+}
+[data-baseweb="toast"][kind="positive"] { background-color: #22c55e !important; }
+[data-baseweb="toast"][kind="negative"] { background-color: #ef4444 !important; }
+[data-baseweb="toast"][kind="warning"]  { background-color: #f59e0b !important; }
 
-st.markdown("## 🌍 World History Quiz")
-st.caption("A colorful, AI-powered quiz. Pick a theme & difficulty and challenge your knowledge!")
+                              
 
 # ============== OPENAI CLIENT ==============
 API_KEY = st.secrets.get("OPENAI_API_KEY")
@@ -302,4 +326,5 @@ if st.session_state.answered:
         st.rerun()
 
 st.markdown("<br><p style='text-align:center;color:#9aa4b2'>Powered by OpenAI • Model: gpt-4o-mini • Streamlit</p>", unsafe_allow_html=True)
+
 
