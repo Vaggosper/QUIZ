@@ -1,308 +1,224 @@
 import json
 import re
 import time
-from typing import List, Dict, Any
-
+from typing import Dict, Any
 import streamlit as st
 from openai import OpenAI
 
+# ---------- CONFIG ----------
+st.set_page_config(page_title="World History Quiz", page_icon="🌍", layout="centered")
 
-st.set_page_config(
-    page_title="World History Quiz",
-    page_icon="🌍",
-    layout="centered"
-)
-
-
+# ---------- CSS STYLE ----------
 st.markdown("""
 <style>
-:root { --brand:#3b82f6; --bg:#0b1020; --card:#111936; --muted:#9aa4b2; --accent:#22c55e; --warn:#f59e0b; --error:#ef4444; }
-html, body, [data-testid="stAppViewContainer"] { background: radial-gradient(1200px 600px at 10% 10%, #0d1430 0%, #0a0f1f 45%, #070b16 100%) !important; }
+body, [data-testid="stAppViewContainer"] {
+    background: radial-gradient(circle at 10% 10%, #0f1624 0%, #0b1120 50%, #080c18 100%) !important;
+    color: #e6edff !important;
+}
 h1,h2,h3,h4 { color: #e6edff !important; }
-section.main > div { padding-top: 1.5rem; }
-.block-container { max-width: 820px; }
-div.stButton > button { border-radius: 10px; font-weight: 600; }
-.quiz-card { background: var(--card); border: 1px solid rgba(255,255,255,0.06); padding: 1.25rem 1.1rem; border-radius: 14px; box-shadow: 0 10px 24px rgba(0,0,0,0.35); }
-.meta { color: var(--muted); font-size: 0.9rem; }
-.score-chip { display:inline-block; padding: 6px 10px; background:#1f2a44; color:#cfe0ff; border-radius: 20px; border:1px solid rgba(255,255,255,0.08); }
-.badge { display:inline-block; padding:4px 8px; border-radius:8px; background:#132042; color:#a3b6ff; border:1px solid rgba(255,255,255,.08); }
-.success { color: #86efac; }
-.warning { color: #fbbf24; }
-.error { color: #fca5a5; }
-.kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background:#101826; border:1px solid #25314a; border-bottom-color:#1b253d; padding:2px 6px; border-radius:6px; }
+.quiz-card {
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 1.2rem;
+    margin-top: 1rem;
+}
+.score-chip {
+    background: rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 6px 12px;
+    display:inline-block;
+    margin-bottom:10px;
+}
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("### 🌍 World History Quiz")
-st.caption("A colorful, AI-powered quiz. Pick a theme & difficulty, then challenge your knowledge!")
+st.title("🌍 World History Quiz")
+st.caption("An AI-powered quiz with colorful design and GPT-4o-mini intelligence.")
 
-
+# ---------- OPENAI CLIENT ----------
 API_KEY = st.secrets.get("OPENAI_API_KEY")
 if not API_KEY:
-    st.error("Missing OPENAI_API_KEY in Streamlit Secrets. Add it to `.streamlit/secrets.toml`.")
+    st.error("❌ Missing OPENAI_API_KEY in your Streamlit Secrets.")
     st.stop()
 
 client = OpenAI(api_key=API_KEY)
-MODEL_NAME = "gpt-4o-mini"  # as requested
+MODEL_LIST = ["gpt-4o-mini", "gpt-4o-mini-2024-07-18", "gpt-4o", "gpt-4o-2024-08-06"]
+DEBUG = True
 
-
+# ---------- HELPER FUNCTIONS ----------
 def extract_json_block(text: str) -> str:
-    """
-    Try to safely extract a JSON object from a model response.
-    Handles ```json ... ``` fences or plain JSON strings.
-    """
     if not text:
         raise ValueError("Empty response from model.")
-    # Try fenced ```json ... ```
     fence = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, flags=re.S)
     if fence:
         return fence.group(1)
-    # Try first {...} block
     obj = re.search(r"(\{(?:[^{}]|(?1))*\})", text, flags=re.S)
     if obj:
         return obj.group(1)
-    # Fall back to raw
     return text.strip()
 
 def validate_question(obj: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Ensure the question JSON has required fields and safe values.
-    Expected schema:
-    {
-      "question": str,
-      "options": [str, str, str, str],
-      "correct_index": int (0-3),
-      "explanation": str
-    }
-    """
-    required = ["question", "options", "correct_index", "explanation"]
-    for k in required:
-        if k not in obj:
-            raise ValueError(f"Missing field: {k}")
-
-    if not isinstance(obj["question"], str) or len(obj["question"].strip()) < 5:
-        raise ValueError("Invalid 'question'.")
+    if not all(k in obj for k in ("question", "options", "correct_index", "explanation")):
+        raise ValueError("Missing required fields in JSON.")
 
     if not isinstance(obj["options"], list) or len(obj["options"]) < 2:
-        raise ValueError("Invalid 'options' list.")
-    # Normalize to 4 options: pad or trim
-    options = [str(x).strip() for x in obj["options"] if str(x).strip()]
-    if len(options) < 2:
-        raise ValueError("Not enough valid options.")
-    if len(options) > 4:
-        options = options[:4]
-    elif len(options) < 4:
+        raise ValueError("Invalid options list.")
+    obj["options"] = [str(x).strip() for x in obj["options"][:4]]
 
-        while len(options) < 4:
-            options.append(f"None of the above {len(options)}")
-
-    ci = obj["correct_index"]
-    if not isinstance(ci, int) or not (0 <= ci < len(options)):
-        raise ValueError("Invalid 'correct_index' position.")
-
-    if not isinstance(obj["explanation"], str) or len(obj["explanation"].strip()) < 5:
-        raise ValueError("Invalid 'explanation'.")
-
-    obj["options"] = options
-    obj["correct_index"] = ci
+    if not isinstance(obj["correct_index"], int) or not (0 <= obj["correct_index"] < len(obj["options"])):
+        raise ValueError("Invalid correct_index.")
     return obj
 
 SYSTEM_JSON_SCHEMA = """You are a quiz author. Produce ONLY a single JSON object with fields:
-- "question": string (concise, clear, single-sentence prompt)
-- "options": array of 4 short, distinct, plausible options (strings)
-- "correct_index": integer 0..3 (index of the correct option in "options")
-- "explanation": string (1-2 sentences, factual, neutral tone)
-
-Rules:
-- Output JSON ONLY. No commentary.
-- Do NOT repeat the question text inside explanation.
-- Use globally accepted historical facts; avoid controversies unless widely settled.
+- "question": string (concise historical question)
+- "options": array of 4 short plausible answers
+- "correct_index": integer 0..3 (correct option index)
+- "explanation": string (1–2 sentence factual explanation)
+Do not include markdown or commentary. Return raw JSON only.
 """
 
 def generate_question(theme: str, era: str, difficulty: str) -> Dict[str, Any]:
-    """
-    Ask the model for one world-history question.
-    """
-    user_msg = (
-        f"Create one WORLD HISTORY multiple-choice question.\n"
-        f"Theme: {theme}\n"
-        f"Era/Region focus: {era}\n"
-        f"Difficulty: {difficulty}\n"
-        f"Avoid topics already asked in this session (if provided below).\n"
-    )
-
-
+    user_msg = f"""
+Create one WORLD HISTORY multiple-choice question.
+Theme: {theme}
+Era/Region: {era or "Any"}
+Difficulty: {difficulty}
+Avoid duplicates from previous questions.
+"""
     asked = st.session_state.get("asked_questions", [])
     if asked:
-        user_msg += "\nAlready asked (avoid duplicates):\n"
-        for q in asked[-10:]:  # last 10
-            user_msg += f"- {q}\n"
+        user_msg += "\nAlready asked:\n" + "\n".join(f"- {q}" for q in asked[-10:])
 
-    try:
-        resp = client.chat.completions.create(
-            model=MODEL_NAME,
-            temperature=0.7,
-            messages=[
-                {"role": "system", "content": SYSTEM_JSON_SCHEMA},
-                {"role": "user", "content": user_msg}
-            ]
-        )
-        raw = resp.choices[0].message.content
-        block = extract_json_block(raw)
-        obj = json.loads(block)
-        return validate_question(obj)
-    except Exception as e:
-        raise RuntimeError(f"Model error: {e}")
+    last_error = None
+    for model in MODEL_LIST:
+        try:
+            resp = client.chat.completions.create(
+                model=model,
+                temperature=0.7,
+                messages=[
+                    {"role": "system", "content": SYSTEM_JSON_SCHEMA},
+                    {"role": "user", "content": user_msg}
+                ],
+                timeout=30
+            )
+            raw = resp.choices[0].message.content
+            json_text = extract_json_block(raw)
+            obj = json.loads(json_text)
+            return validate_question(obj)
+        except Exception as e:
+            last_error = e
+            if DEBUG:
+                st.info(f"Model `{model}` failed: {e}")
+            continue
+    raise RuntimeError(f"OpenAI call failed: {last_error}")
 
+# ---------- SESSION STATE ----------
+for k, v in {
+    "quiz": [],
+    "current": 0,
+    "score": 0,
+    "answered": False,
+    "selected": None,
+    "asked_questions": [],
+    "start_time": time.time(),
+}.items():
+    st.session_state.setdefault(k, v)
 
-if "quiz" not in st.session_state:
-    st.session_state.quiz = []
-if "current" not in st.session_state:
-    st.session_state.current = 0
-if "score" not in st.session_state:
-    st.session_state.score = 0
-if "answered" not in st.session_state:
-    st.session_state.answered = False
-if "selected" not in st.session_state:
-    st.session_state.selected = None
-if "asked_questions" not in st.session_state:
-    st.session_state.asked_questions = []
-if "start_time" not in st.session_state:
-    st.session_state.start_time = time.time()
-
-
+# ---------- SIDEBAR SETTINGS ----------
 with st.sidebar:
     st.header("⚙️ Settings")
     theme = st.selectbox("Theme", [
-        "General World History",
-        "Ancient Civilizations",
-        "Medieval Period",
-        "Renaissance & Early Modern",
-        "Age of Exploration",
-        "Industrial Era",
-        "20th Century (World Wars, Cold War)",
+        "General World History", "Ancient Civilizations", "Medieval Period",
+        "Renaissance & Exploration", "Industrial Era", "20th Century (World Wars)",
         "Non-Western Empires & History"
     ], index=0)
-
-    era = st.text_input("Specific Era/Region (optional)", placeholder="e.g., Mesopotamia, Ming Dynasty, WWI Europe")
-
+    era = st.text_input("Specific Era / Region", placeholder="e.g., Mesopotamia, Ming Dynasty")
     difficulty = st.select_slider("Difficulty", options=["Easy", "Medium", "Hard"], value="Medium")
-
     total_q = st.slider("Number of Questions", 3, 15, 8)
-
     st.markdown("---")
-    st.markdown("**Pro tip:** Press <span class='kbd'>R</span> to rerun after changing settings.", unsafe_allow_html=True)
+    st.caption("💡 Tip: Press **R** to rerun after changing settings.")
 
+# ---------- QUIZ FUNCTIONS ----------
+def reset_quiz():
+    for key in ("quiz", "current", "score", "answered", "selected", "asked_questions"):
+        if key == "quiz":
+            st.session_state[key] = []
+        elif key == "asked_questions":
+            st.session_state[key] = []
+        else:
+            st.session_state[key] = 0
+    st.session_state.start_time = time.time()
+    st.rerun()
 
 def ensure_quiz_built():
-    """
-    Build/refresh the quiz to match the requested length.
-    """
     needed = total_q - len(st.session_state.quiz)
     if needed <= 0:
         return
-    with st.spinner("Generating questions from OpenAI…"):
+    with st.spinner("Generating questions..."):
         for _ in range(needed):
-            q = generate_question(theme, era or "Any", difficulty)
+            q = generate_question(theme, era, difficulty)
             st.session_state.quiz.append(q)
             st.session_state.asked_questions.append(q["question"])
 
-def reset_quiz():
-    st.session_state.quiz = []
-    st.session_state.current = 0
-    st.session_state.score = 0
-    st.session_state.answered = False
-    st.session_state.selected = None
-    st.session_state.start_time = time.time()
-
-colA, colB = st.columns([1,1])
-with colA:
+# ---------- MAIN LOGIC ----------
+col1, col2 = st.columns(2)
+with col1:
     if st.button("🔁 New Quiz"):
         reset_quiz()
-with colB:
+with col2:
     if st.button("➕ Add 1 Question"):
         ensure_quiz_built()
 
 ensure_quiz_built()
 
-
 elapsed = int(time.time() - st.session_state.start_time)
-mins = elapsed // 60
-secs = elapsed % 60
-st.markdown(
-    f"<div class='meta'>Theme: <span class='badge'>{theme}</span> &nbsp; "
-    f"Difficulty: <span class='badge'>{difficulty}</span> &nbsp; "
-    f"Questions: <span class='badge'>{len(st.session_state.quiz)}</span> &nbsp; "
-    f"Time: <span class='badge'>{mins}m {secs}s</span></div>",
-    unsafe_allow_html=True
-)
+mins, secs = divmod(elapsed, 60)
+st.markdown(f"<p class='score-chip'>⏱️ {mins}m {secs}s | Theme: {theme} | Difficulty: {difficulty}</p>", unsafe_allow_html=True)
 
-
+# ---------- DISPLAY QUIZ ----------
 if st.session_state.current >= len(st.session_state.quiz):
-    # RESULTS
     total = len(st.session_state.quiz)
     score = st.session_state.score
     ratio = score / total if total else 0
-    st.markdown("## Results")
-    st.markdown(f"<span class='score-chip'>Score: {score}/{total}</span>", unsafe_allow_html=True)
+    st.markdown("## 🏁 Results")
+    st.markdown(f"<div class='score-chip'>Score: {score}/{total}</div>", unsafe_allow_html=True)
     if ratio == 1:
-        st.markdown("<p class='success'>Perfect! You’re a history machine. 🏆</p>", unsafe_allow_html=True)
+        st.success("Perfect! 🏆")
         st.balloons()
     elif ratio >= 0.8:
-        st.markdown("<p class='success'>Excellent work! 🔥</p>", unsafe_allow_html=True)
+        st.success("Excellent work! 🔥")
     elif ratio >= 0.5:
-        st.markdown("<p class='warning'>Not bad — a bit more reading and you’ll ace it! 📚</p>", unsafe_allow_html=True)
+        st.warning("Not bad — a bit more reading and you’ll ace it! 📚")
     else:
-        st.markdown("<p class='error'>Tough round. Fancy another try? 💪</p>", unsafe_allow_html=True)
-
+        st.info("Tough round. Try again! 💪")
     if st.button("Play Again"):
         reset_quiz()
-        ensure_quiz_built()
     st.stop()
 
-
 q = st.session_state.quiz[st.session_state.current]
-st.markdown("#### Question")
 st.markdown(f"<div class='quiz-card'><b>{q['question']}</b></div>", unsafe_allow_html=True)
 
-choice = st.radio(
-    "Choose your answer:",
-    options=[f"{i+1}. {opt}" for i, opt in enumerate(q["options"])],
-    index=None,
-    key=f"choice_{st.session_state.current}"
-)
+choice = st.radio("Choose your answer:", [f"{i+1}. {opt}" for i, opt in enumerate(q["options"])], index=None)
+colA, colB = st.columns(2)
+feedback = st.empty()
 
-col1, col2 = st.columns([1,1])
-with col1:
-    submit = st.button("✅ Submit")
-with col2:
-    skip = st.button("⏭️ Skip")
-
-feedback_placeholder = st.empty()
-
-if submit and choice is None:
-    st.warning("Pick an option first 🙂")
-
-if submit and choice is not None and not st.session_state.answered:
-    selected_idx = int(choice.split(".")[0]) - 1
-    st.session_state.selected = selected_idx
-    st.session_state.answered = True
-
-    correct_idx = q["correct_index"]
-    correct_text = q["options"][correct_idx]
-
-    if selected_idx == correct_idx:
-        st.session_state.score += 1
-        feedback_placeholder.success(f"Correct! ✅  \n{q['explanation']}")
+if colA.button("✅ Submit") and not st.session_state.answered:
+    if choice is None:
+        st.warning("Select an answer first.")
     else:
-        feedback_placeholder.error(f"Wrong. ❌ Correct answer: **{correct_text}**  \n{q['explanation']}")
+        selected_idx = int(choice.split(".")[0]) - 1
+        correct_idx = q["correct_index"]
+        if selected_idx == correct_idx:
+            st.session_state.score += 1
+            feedback.success(f"✅ Correct! {q['explanation']}")
+        else:
+            feedback.error(f"❌ Wrong. Correct: **{q['options'][correct_idx]}**\n\n{q['explanation']}")
+        st.session_state.answered = True
 
-if skip and not st.session_state.answered:
-    st.session_state.selected = None
-    st.session_state.answered = True
+if colB.button("⏭️ Skip") and not st.session_state.answered:
     correct_idx = q["correct_index"]
-    feedback_placeholder.info(f"Skipped. Correct answer: **{q['options'][correct_idx]}**  \n{q['explanation']}")
-
+    feedback.info(f"Skipped. Correct answer: **{q['options'][correct_idx]}**\n\n{q['explanation']}")
+    st.session_state.answered = True
 
 if st.session_state.answered:
     if st.button("Next ➡️"):
@@ -311,5 +227,4 @@ if st.session_state.answered:
         st.session_state.selected = None
         st.rerun()
 
-
-st.markdown("<br><div class='meta'>Powered by OpenAI • Model: gpt-4o-mini • Streamlit</div>", unsafe_allow_html=True)
+st.markdown("<br><p style='text-align:center;color:gray'>Powered by OpenAI • Model: GPT-4o-mini • Streamlit</p>", unsafe_allow_html=True)
