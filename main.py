@@ -12,15 +12,12 @@ st.set_page_config(page_title="World History Quiz", page_icon="🌍", layout="ce
 DEBUG = True  # βάλ' το False όταν τελειώσουμε
 
 # ============== THEME / CSS ==============
-st.markdown("""
+st.markdown(r"""
 <style>
-...
+html, body { background: linear-gradient(160deg, #1a2540 0%, #0d1733 70%, #0a0f1f 100%) !important; }
 </style>
 """, unsafe_allow_html=True)
-html, body, [data-testid="stAppViewContainer"] {
-  background: linear-gradient(160deg, #1a2540 0%, #0d1733 70%, #0a0f1f 100%) !important;
-  color: #f3f5ff !important;
-}
+
 h1,h2,h3,h4 { color: #ffffff !important; }
 .quiz-card {
   background: rgba(255,255,255,0.08);
@@ -326,5 +323,6 @@ if st.session_state.answered:
         st.rerun()
 
 st.markdown("<br><p style='text-align:center;color:#9aa4b2'>Powered by OpenAI • Model: gpt-4o-mini • Streamlit</p>", unsafe_allow_html=True)
+
 
 
