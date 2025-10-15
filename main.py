@@ -270,7 +270,7 @@ st.markdown(f"<div class='quiz-card'><b>{q['question']}</b></div>", unsafe_allow
 
 choice = st.radio(
     "Choose your answer:",
-    options=[f"{i+1}. {opt}" for i, opt in enumerate(q["options"])],
+    options=[f"{i+1}. {opt}" for i, opt in enumerate(q['options'])],
     index=None,
     key=f"q_{st.session_state.current}"
 )
@@ -287,11 +287,11 @@ if col1.button("✅ Submit") and not st.session_state.answered:
             st.session_state.score += 1
             feedback.success(f"Correct! ✅\n\n{q['explanation']}")
         else:
-            feedback.error(f"Wrong. ❌ Correct answer: **{q['options'][q['correct_index]]}**\n\n{q['explanation']}")
+            feedback.error(f"Wrong. ❌ Correct answer: **{q['options'][q['correct_index']]}**\n\n{q['explanation']}")
         st.session_state.answered = True
 
 if col2.button("⏭️ Skip") and not st.session_state.answered:
-    feedback.info(f"Skipped. Correct answer: **{q['options'][q['correct_index]]}**\n\n{q['explanation']}")
+    feedback.info(f"Skipped. Correct answer: **{q['options'][q['correct_index']]}**\n\n{q['explanation']}")
     st.session_state.answered = True
 
 if st.session_state.answered:
@@ -301,5 +301,5 @@ if st.session_state.answered:
         st.session_state.selected = None
         st.rerun()
 
-st.markdown("<br><p style='text-align:center;color:#9aa4b2'>Powered by OpenAI • Models: 4o-mini/4o • Streamlit</p>", unsafe_allow_html=True)
+st.markdown("<br><p style='text-align:center;color:#9aa4b2'>Powered by OpenAI • Model: gpt-4o-mini • Streamlit</p>", unsafe_allow_html=True)
 
