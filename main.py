@@ -14,11 +14,12 @@ DEBUG = True  # βάλ' το False όταν τελειώσουμε
 # ============== THEME / CSS ==============
 st.markdown(r"""
 <style>
-html, body { background: linear-gradient(160deg, #1a2540 0%, #0d1733 70%, #0a0f1f 100%) !important; }
-</style>
-""", unsafe_allow_html=True)
-
+html, body {
+  background: linear-gradient(160deg, #1a2540 0%, #0d1733 70%, #0a0f1f 100%) !important;
+  color: #f3f5ff !important;
+}
 h1,h2,h3,h4 { color: #ffffff !important; }
+
 .quiz-card {
   background: rgba(255,255,255,0.08);
   border: 1px solid rgba(255,255,255,0.15);
@@ -26,13 +27,18 @@ h1,h2,h3,h4 { color: #ffffff !important; }
   padding: 1.2rem;
   box-shadow: 0 4px 12px rgba(0,0,0,0.4);
 }
+
 .badge {
-  background:#21335c; color:#d9e4ff;
+  background:#21335c;
+  color:#d9e4ff;
   border:1px solid rgba(255,255,255,.15);
 }
+
 .score-chip {
-  background:#1c2b53; color:#f1f4ff;
+  background:#1c2b53;
+  color:#f1f4ff;
 }
+
 div.stButton > button {
   border-radius: 10px;
   font-weight: 600;
@@ -43,6 +49,7 @@ div.stButton > button {
 div.stButton > button:hover {
   background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%) !important;
 }
+
 [data-baseweb="toast"] {
   border-radius: 10px !important;
   font-weight: 500 !important;
@@ -51,6 +58,9 @@ div.stButton > button:hover {
 [data-baseweb="toast"][kind="positive"] { background-color: #22c55e !important; }
 [data-baseweb="toast"][kind="negative"] { background-color: #ef4444 !important; }
 [data-baseweb="toast"][kind="warning"]  { background-color: #f59e0b !important; }
+</style>
+""", unsafe_allow_html=True)
+
 
                               
 
@@ -323,6 +333,7 @@ if st.session_state.answered:
         st.rerun()
 
 st.markdown("<br><p style='text-align:center;color:#9aa4b2'>Powered by OpenAI • Model: gpt-4o-mini • Streamlit</p>", unsafe_allow_html=True)
+
 
 
 
